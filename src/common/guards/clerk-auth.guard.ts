@@ -9,12 +9,14 @@ import { ConfigService } from '@nestjs/config';
 import { verifyToken } from '@clerk/backend';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,12 +37,23 @@ export class ClerkAuthGuard implements CanActivate {
     const secretKey =
       this.configService.get<string>('CLERK_SECRET_KEY') ?? '';
 
+    let clerkId: string;
     try {
       const payload = await verifyToken(token, { secretKey });
-      (request as any).clerkId = payload.sub;
-      return true;
+      clerkId = payload.sub;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    const user = await this.prisma.user.findUnique({
+      where: { clerkId, tenantId: 'pono' },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    (request as any).user = user;
+    return true;
   }
 }
