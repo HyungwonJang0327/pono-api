@@ -11,6 +11,7 @@ import type { Request } from 'express';
 import { Webhook } from 'svix';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -19,6 +20,7 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
+  @Public()
   @Post('webhook')
   @HttpCode(200)
   async handleWebhook(

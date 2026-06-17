@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -8,6 +9,7 @@ import { FeedModule } from './feed/feed.module';
 import { FollowModule } from './follow/follow.module';
 import { LikeModule } from './like/like.module';
 import { CommentModule } from './comment/comment.module';
+import { ClerkAuthGuard } from './common/guards/clerk-auth.guard';
 
 @Module({
   imports: [
@@ -20,6 +22,12 @@ import { CommentModule } from './comment/comment.module';
     FollowModule,
     LikeModule,
     CommentModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ClerkAuthGuard,
+    },
   ],
 })
 export class AppModule {}
