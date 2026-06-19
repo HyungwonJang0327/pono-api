@@ -24,10 +24,28 @@ export class ClerkAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers['authorization'];
+
+    if (isPublic) {
+      // Public 라우트에서도 토큰이 있으면 req.user 세팅 (선택적 인증)
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        const secretKey =
+          this.configService.get<string>('CLERK_SECRET_KEY') ?? '';
+        try {
+          const payload = await verifyToken(token, { secretKey });
+          const user = await this.prisma.user.findUnique({
+            where: { clerkId: payload.sub, tenantId: 'pono' },
+          });
+          if (user) (request as any).user = user;
+        } catch {
+          // 토큰 검증 실패해도 Public 라우트이므로 통과
+        }
+      }
+      return true;
+    }
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid Authorization header');
