@@ -63,13 +63,13 @@ export class ClerkAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { clerkId, tenantId: 'pono' },
+    // Clerk JWT 검증이 통과했으면 유효한 유저임.
+    // 웹훅 타이밍 갭으로 DB row가 없을 수 있으므로 upsert로 보장.
+    const user = await this.prisma.user.upsert({
+      where: { clerkId },
+      create: { clerkId, tenantId: 'pono', username: null },
+      update: {},
     });
-
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
 
     (request as any).user = user;
     return true;
