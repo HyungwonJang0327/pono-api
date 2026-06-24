@@ -11,7 +11,7 @@ const TENANT_ID = 'pono';
 export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async handleUserCreated(clerkId: string): Promise<void> {
+  async handleUserCreated(clerkId: string, imageUrl?: string | null): Promise<void> {
     const existing = await this.prisma.user.findUnique({
       where: { clerkId },
     });
@@ -21,6 +21,7 @@ export class AuthService {
       data: {
         clerkId,
         username: null,
+        avatar: imageUrl ?? null,
         tenantId: TENANT_ID,
       },
     });
