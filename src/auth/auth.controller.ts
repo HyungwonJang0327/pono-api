@@ -66,6 +66,7 @@ export class AuthController {
           email: (event.data.email_addresses as Array<{ email_address: string }>)?.[0]?.email_address ?? null,
           firstName: event.data.first_name as string | null,
           lastName: event.data.last_name as string | null,
+          externalAccounts: event.data.external_accounts as unknown[] | null,
         });
         break;
       case 'user.deleted':

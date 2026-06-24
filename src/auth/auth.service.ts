@@ -13,7 +13,7 @@ export class AuthService {
 
   async handleUserCreated(
     clerkId: string,
-    data: { imageUrl?: string | null; email?: string | null; firstName?: string | null; lastName?: string | null },
+    data: { imageUrl?: string | null; email?: string | null; firstName?: string | null; lastName?: string | null; externalAccounts?: unknown[] | null },
   ): Promise<void> {
     const existing = await this.prisma.user.findUnique({ where: { clerkId } });
     if (existing) return;
@@ -25,6 +25,7 @@ export class AuthService {
         firstName: data.firstName ?? null,
         lastName: data.lastName ?? null,
         avatar: data.imageUrl ?? null,
+        externalAccounts: data.externalAccounts ?? [],
         username: null,
         tenantId: TENANT_ID,
       },
