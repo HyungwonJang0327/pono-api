@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
@@ -44,5 +44,13 @@ export class S3Service {
     const fileUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
 
     return { uploadUrl, fileUrl };
+  }
+
+  async deleteObject(fileUrl: string): Promise<void> {
+    // fileUrl: https://{bucket}.s3.{region}.amazonaws.com/{key}
+    const url = new URL(fileUrl);
+    const key = url.pathname.slice(1); // leading '/' 제거
+    const command = new DeleteObjectCommand({ Bucket: this.bucket, Key: key });
+    await this.client.send(command);
   }
 }
