@@ -61,10 +61,12 @@ export class AuthController {
 
     switch (event.type) {
       case 'user.created':
-        await this.authService.handleUserCreated(
-          event.data.id as string,
-          event.data.image_url as string | null,
-        );
+        await this.authService.handleUserCreated(event.data.id as string, {
+          imageUrl: event.data.image_url as string | null,
+          email: (event.data.email_addresses as Array<{ email_address: string }>)?.[0]?.email_address ?? null,
+          firstName: event.data.first_name as string | null,
+          lastName: event.data.last_name as string | null,
+        });
         break;
       case 'user.deleted':
         await this.authService.handleUserDeleted(event.data.id as string);
