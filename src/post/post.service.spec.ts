@@ -64,6 +64,10 @@ describe('PostService', () => {
   const prismaMock = {
     post: {
       create: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    like: {
+      findFirst: jest.fn(),
     },
   };
 
@@ -231,6 +235,42 @@ describe('PostService', () => {
 
       const callArg = prismaMock.post.create.mock.calls[0][0];
       expect(callArg.data.readingTime).toBe(1);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // getPostDetail — 소유권 판단
+  // ─────────────────────────────────────────────────────────────────
+  describe('getPostDetail', () => {
+    function mockPostWithLikes(authorId: string) {
+      return {
+        ...mockPost({ authorId, author: { ...mockPost().author, id: authorId } }),
+        likes: [],
+      };
+    }
+
+    it('requestUser.id === post.author.id → isOwnedByMe: true', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(mockPostWithLikes('user-id-1'));
+
+      const result = await service.getPostDetail('post-id-1', { id: 'user-id-1' });
+
+      expect(result.isOwnedByMe).toBe(true);
+    });
+
+    it('requestUser.id !== post.author.id → isOwnedByMe: false', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(mockPostWithLikes('user-id-1'));
+
+      const result = await service.getPostDetail('post-id-1', { id: 'user-id-2' });
+
+      expect(result.isOwnedByMe).toBe(false);
+    });
+
+    it('requestUser null(비로그인) → isOwnedByMe: false', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(mockPostWithLikes('user-id-1'));
+
+      const result = await service.getPostDetail('post-id-1', null);
+
+      expect(result.isOwnedByMe).toBe(false);
     });
   });
 });
