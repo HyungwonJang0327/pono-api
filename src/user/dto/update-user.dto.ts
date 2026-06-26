@@ -22,7 +22,7 @@ export const RESERVED_USERNAMES = [
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
-  @MinLength(3)
+  @MinLength(2)
   @MaxLength(20)
   @Matches(/^[a-zA-Z0-9]+$/, {
     message: 'username은 영문 대소문자와 숫자만 사용 가능합니다',
