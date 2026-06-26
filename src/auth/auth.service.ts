@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 const TENANT_ID = 'pono';
 
@@ -25,7 +26,7 @@ export class AuthService {
         firstName: data.firstName ?? null,
         lastName: data.lastName ?? null,
         avatar: data.imageUrl ?? null,
-        externalAccounts: data.externalAccounts ?? [],
+        externalAccounts: (data.externalAccounts ?? []) as Prisma.InputJsonValue,
         username: null,
         tenantId: TENANT_ID,
       },
