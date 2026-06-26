@@ -24,8 +24,8 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(3)
   @MaxLength(20)
-  @Matches(/^[a-z0-9_]+$/, {
-    message: 'username은 영문 소문자, 숫자, 언더스코어만 사용 가능합니다',
+  @Matches(/^[a-zA-Z0-9]+$/, {
+    message: 'username은 영문 대소문자와 숫자만 사용 가능합니다',
   })
   username?: string;
 
