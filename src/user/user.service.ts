@@ -61,6 +61,7 @@ export interface UserPublicProfileDto {
   followingCount: number;
   postCount: number;
   isFollowedByMe: boolean;
+  isOwnedByMe: boolean;
 }
 
 @Injectable()
@@ -160,6 +161,8 @@ export class UserService {
       isFollowedByMe = follow !== null;
     }
 
+    const isOwnedByMe = requestingUserId !== null && requestingUserId === result.id;
+
     return {
       id: result.id,
       username: result.username!,
@@ -169,6 +172,7 @@ export class UserService {
       followingCount: result._count.following,
       postCount: result._count.posts,
       isFollowedByMe,
+      isOwnedByMe,
     };
   }
 

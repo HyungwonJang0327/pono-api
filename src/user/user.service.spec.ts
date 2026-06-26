@@ -142,6 +142,7 @@ describe('UserService', () => {
         followingCount: 5,
         postCount: 3,
         isFollowedByMe: false,
+        isOwnedByMe: false,
       });
     });
 
@@ -178,6 +179,32 @@ describe('UserService', () => {
       const result = await service.getPublicProfile('johndoe', 'user-1');
 
       expect(result.isFollowedByMe).toBe(false);
+    });
+
+    it('본인 프로필 조회(requestingUserId === user.id) → isOwnedByMe: true', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(targetUser);
+      mockPrismaService.follow.findFirst.mockResolvedValue(null);
+
+      const result = await service.getPublicProfile('johndoe', 'user-2');
+
+      expect(result.isOwnedByMe).toBe(true);
+    });
+
+    it('타인 프로필 조회(requestingUserId !== user.id) → isOwnedByMe: false', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(targetUser);
+      mockPrismaService.follow.findFirst.mockResolvedValue(null);
+
+      const result = await service.getPublicProfile('johndoe', 'user-1');
+
+      expect(result.isOwnedByMe).toBe(false);
+    });
+
+    it('비로그인(requestingUserId null) → isOwnedByMe: false', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(targetUser);
+
+      const result = await service.getPublicProfile('johndoe', null);
+
+      expect(result.isOwnedByMe).toBe(false);
     });
   });
 
