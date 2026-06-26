@@ -224,7 +224,7 @@ export class PostService {
   // ── GET /posts/:id ───────────────────────────────────────────────
   async getPostDetail(
     postId: string,
-    requestUser: { id: string; clerkId: string } | null,
+    requestUser: { id: string } | null,
   ): Promise<PostDetailDto> {
     const post = await this.findPostWithRelations(postId);
 
@@ -233,7 +233,7 @@ export class PostService {
     }
 
     const isOwner = requestUser
-      ? post.author.clerkId === requestUser.clerkId
+      ? post.author.id === requestUser.id
       : false;
 
     // isDraft 포스트는 작성자 본인만 조회 가능
@@ -248,7 +248,7 @@ export class PostService {
   async updatePost(
     postId: string,
     dto: UpdatePostDto,
-    requestUser: { id: string; clerkId: string },
+    requestUser: { id: string },
   ): Promise<PostDetailDto> {
     const post = await this.findPostWithRelations(postId);
 
@@ -256,7 +256,7 @@ export class PostService {
       throw new NotFoundException('포스트를 찾을 수 없습니다.');
     }
 
-    if (post.author.clerkId !== requestUser.clerkId) {
+    if (post.author.id !== requestUser.id) {
       throw new ForbiddenException('수정 권한이 없습니다.');
     }
 
@@ -320,7 +320,7 @@ export class PostService {
   // ── DELETE /posts/:id ────────────────────────────────────────────
   async deletePost(
     postId: string,
-    requestUser: { id: string; clerkId: string },
+    requestUser: { id: string },
   ): Promise<{ id: string }> {
     const post = await this.prisma.post.findFirst({
       where: { id: postId, tenantId: TENANT_ID },
@@ -331,7 +331,7 @@ export class PostService {
       throw new NotFoundException('포스트를 찾을 수 없습니다.');
     }
 
-    if (post.author.clerkId !== requestUser.clerkId) {
+    if (post.author.id !== requestUser.id) {
       throw new ForbiddenException('삭제 권한이 없습니다.');
     }
 

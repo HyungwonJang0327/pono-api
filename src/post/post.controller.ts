@@ -45,7 +45,7 @@ export class PostController {
   @Public()
   async getPostDetail(@Param('id') id: string, @Req() req: Request) {
     const user = (req as any).user as User | undefined;
-    const requestUser = user ? { id: user.id, clerkId: user.clerkId } : null;
+    const requestUser = user ? { id: user.id } : null;
     return this.postService.getPostDetail(id, requestUser);
   }
 
@@ -55,11 +55,11 @@ export class PostController {
     @Body() dto: UpdatePostDto,
     @CurrentUser() user: User,
   ) {
-    return this.postService.updatePost(id, dto, { id: user.id, clerkId: user.clerkId });
+    return this.postService.updatePost(id, dto, { id: user.id });
   }
 
   @Delete(':id')
   async deletePost(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.postService.deletePost(id, { id: user.id, clerkId: user.clerkId });
+    return this.postService.deletePost(id, { id: user.id });
   }
 }
