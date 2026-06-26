@@ -9,10 +9,12 @@ export class S3Service {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly region: string;
+  private readonly prefix: string;
 
   constructor(private readonly configService: ConfigService) {
     this.region = this.configService.getOrThrow<string>('AWS_REGION');
     this.bucket = this.configService.getOrThrow<string>('S3_BUCKET_NAME');
+    this.prefix = this.configService.get<string>('S3_PREFIX') ?? 'dev';
 
     this.client = new S3Client({
       region: this.region,
@@ -29,7 +31,7 @@ export class S3Service {
     filename: string,
     contentType: string,
   ): Promise<{ uploadUrl: string; fileUrl: string }> {
-    const key = `uploads/${randomUUID()}-${filename}`;
+    const key = `${this.prefix}/${randomUUID()}-${filename}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
