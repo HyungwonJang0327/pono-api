@@ -1,8 +1,16 @@
-import { Controller, Get, Patch, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserPostsQueryDto } from './dto/user-posts-query.dto';
 import type { User } from '@prisma/client';
 
 @Controller('users')
@@ -26,5 +34,14 @@ export class UserController {
     @CurrentUser() user: User | undefined,
   ) {
     return this.userService.getPublicProfile(username, user?.id ?? null);
+  }
+
+  @Public()
+  @Get(':username/posts')
+  async getUserPosts(
+    @Param('username') username: string,
+    @Query() query: UserPostsQueryDto,
+  ) {
+    return this.userService.getUserPosts(username, query);
   }
 }

@@ -5,10 +5,41 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { User } from '@prisma/client';
+import type { User, Prisma } from '@prisma/client';
 import { UpdateUserDto, RESERVED_USERNAMES } from './dto/update-user.dto';
+import { UserPostsQueryDto } from './dto/user-posts-query.dto';
+import { extractExcerpt } from '../common/utils/extract-excerpt';
+import type { ImageDto } from '../feed/dto/feed-response.dto';
 
 const TENANT_ID = 'pono';
+const DEFAULT_LIMIT = 30;
+
+export interface SnapSummaryDto {
+  id: string;
+  type: 'snap';
+  images: ImageDto[];
+  caption: string | null;
+  likeCount: number;
+  createdAt: Date;
+}
+
+export interface ArticleSummaryDto {
+  id: string;
+  type: 'article';
+  title: string | null;
+  excerpt: string;
+  coverImage: string | null;
+  readingTime: number | null;
+  isDraft: boolean;
+  likeCount: number;
+  createdAt: Date;
+}
+
+export interface UserPostsResponseDto {
+  items: (SnapSummaryDto | ArticleSummaryDto)[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
 
 export interface UserProfileDto {
   id: string;
@@ -139,5 +170,92 @@ export class UserService {
       postCount: result._count.posts,
       isFollowedByMe,
     };
+  }
+
+  async getUserPosts(
+    username: string,
+    query: UserPostsQueryDto,
+  ): Promise<UserPostsResponseDto> {
+    const user = await this.prisma.user.findFirst({
+      where: { username, tenantId: TENANT_ID },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('존재하지 않는 사용자입니다');
+    }
+
+    const limit = query.limit ?? DEFAULT_LIMIT;
+
+    const where: Prisma.PostWhereInput = {
+      authorId: user.id,
+      tenantId: TENANT_ID,
+      type: query.type,
+      isDraft: false,
+    };
+
+    if (query.cursor) {
+      const idx = query.cursor.indexOf('_');
+      const date = new Date(query.cursor.slice(0, idx));
+      const id = query.cursor.slice(idx + 1);
+      where.OR = [
+        { createdAt: { lt: date } },
+        { createdAt: date, id: { lt: id } },
+      ];
+    }
+
+    const posts = await this.prisma.post.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: {
+        id: true,
+        type: true,
+        images: true,
+        caption: true,
+        title: true,
+        body: true,
+        coverImage: true,
+        readingTime: true,
+        isDraft: true,
+        createdAt: true,
+        _count: { select: { likes: true } },
+      },
+    });
+
+    const hasMore = posts.length > limit;
+    const slice = posts.slice(0, limit);
+
+    const items: (SnapSummaryDto | ArticleSummaryDto)[] = slice.map((p) => {
+      if (p.type === 'snap') {
+        return {
+          id: p.id,
+          type: 'snap' as const,
+          images: (p.images as ImageDto[] | null) ?? [],
+          caption: p.caption,
+          likeCount: p._count.likes,
+          createdAt: p.createdAt,
+        };
+      }
+      return {
+        id: p.id,
+        type: 'article' as const,
+        title: p.title,
+        excerpt: extractExcerpt(p.body),
+        coverImage: p.coverImage,
+        readingTime: p.readingTime,
+        isDraft: p.isDraft,
+        likeCount: p._count.likes,
+        createdAt: p.createdAt,
+      };
+    });
+
+    const last = slice[slice.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? `${last.createdAt.toISOString()}_${last.id}`
+        : null;
+
+    return { items, nextCursor, hasMore };
   }
 }
