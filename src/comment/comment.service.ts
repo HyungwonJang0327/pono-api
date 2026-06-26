@@ -42,6 +42,7 @@ export class CommentService {
     postId: string,
     cursor?: string,
     limit: number = DEFAULT_LIMIT,
+    requestUser: { id: string } | null = null,
   ) {
     const post = await this.prisma.post.findFirst({
       where: { id: postId, tenantId: TENANT_ID },
@@ -94,11 +95,13 @@ export class CommentService {
       author: c.author,
       body: c.body,
       parentId: c.parentId,
+      isOwnedByMe: requestUser !== null && requestUser.id === c.authorId,
       replies: c.replies.map((r) => ({
         id: r.id,
         author: r.author,
         body: r.body,
         parentId: r.parentId as string,
+        isOwnedByMe: requestUser !== null && requestUser.id === r.authorId,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       })),

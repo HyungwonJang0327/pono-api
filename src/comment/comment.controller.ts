@@ -25,11 +25,13 @@ export class CommentController {
   async getComments(
     @Param('postId') postId: string,
     @Query() query: CommentQueryDto,
+    @CurrentUser() requestUser?: User | null,
   ) {
     return this.commentService.getComments(
       postId,
       query.cursor,
       query.limit ?? 30,
+      requestUser ?? null,
     );
   }
 
