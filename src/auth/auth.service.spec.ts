@@ -26,15 +26,48 @@ describe('AuthService', () => {
   });
 
   describe('handleUserCreated', () => {
+    const clerkData = {
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      imageUrl: 'https://example.com/avatar.jpg',
+      externalAccounts: [{ provider: 'google' }],
+    };
+
     it('신규 유저를 생성한다', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue({ id: 'user-1' });
 
-      await service.handleUserCreated('clerk-123');
+      await service.handleUserCreated('clerk-123', clerkData);
 
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: {
           clerkId: 'clerk-123',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          avatar: 'https://example.com/avatar.jpg',
+          externalAccounts: [{ provider: 'google' }],
+          username: null,
+          tenantId: 'pono',
+        },
+      });
+    });
+
+    it('Clerk 데이터가 없으면 null로 저장한다', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.user.create.mockResolvedValue({ id: 'user-1' });
+
+      await service.handleUserCreated('clerk-123', {});
+
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: {
+          clerkId: 'clerk-123',
+          email: null,
+          firstName: null,
+          lastName: null,
+          avatar: null,
+          externalAccounts: [],
           username: null,
           tenantId: 'pono',
         },
@@ -44,7 +77,7 @@ describe('AuthService', () => {
     it('이미 존재하는 유저면 생성하지 않는다', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-1' });
 
-      await service.handleUserCreated('clerk-123');
+      await service.handleUserCreated('clerk-123', clerkData);
 
       expect(mockPrismaService.user.create).not.toHaveBeenCalled();
     });
