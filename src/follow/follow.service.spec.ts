@@ -49,7 +49,7 @@ describe('FollowService', () => {
     }).compile();
 
     service = module.get<FollowService>(FollowService);
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('follow', () => {
@@ -110,8 +110,6 @@ describe('FollowService', () => {
         { follower: follower1 },
         { follower: follower2 },
       ]);
-      // isFollowedByMe 조회용 findMany (요청 유저 없음)
-      mockPrismaService.follow.findMany.mockResolvedValueOnce([]);
 
       const result = await service.getFollowers('targetuser', null);
 
@@ -163,7 +161,6 @@ describe('FollowService', () => {
       mockPrismaService.follow.findMany.mockResolvedValueOnce([
         { following: following1 },
       ]);
-      mockPrismaService.follow.findMany.mockResolvedValueOnce([]);
 
       const result = await service.getFollowing('targetuser', null);
 
