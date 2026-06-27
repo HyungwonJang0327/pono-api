@@ -13,6 +13,8 @@ export interface FollowUserDto {
   avatar: string | null;
   bio: string | null;
   isFollowedByMe: boolean;
+  followerCount: number;
+  recentActivity: { type: 'article' | 'snap'; daysAgo: number } | null;
 }
 
 const TENANT_ID = 'pono';
@@ -69,10 +71,13 @@ export class FollowService {
       include: { follower: true },
     });
 
-    const followedByMeSet = await this.getFollowedByMeSet(
-      requestUser,
-      rows.map((r) => r.follower.id),
-    );
+    const userIds = rows.map((r) => r.follower.id);
+    const [followedByMeSet, followerCountMap, recentActivityMap] =
+      await Promise.all([
+        this.getFollowedByMeSet(requestUser, userIds),
+        this.getFollowerCountMap(userIds),
+        this.getRecentActivityMap(userIds),
+      ]);
 
     return rows.map((r) => ({
       id: r.follower.id,
@@ -80,6 +85,8 @@ export class FollowService {
       avatar: r.follower.avatar,
       bio: r.follower.bio,
       isFollowedByMe: followedByMeSet.has(r.follower.id),
+      followerCount: followerCountMap.get(r.follower.id) ?? 0,
+      recentActivity: recentActivityMap.get(r.follower.id) ?? null,
     }));
   }
 
@@ -97,10 +104,13 @@ export class FollowService {
       include: { following: true },
     });
 
-    const followedByMeSet = await this.getFollowedByMeSet(
-      requestUser,
-      rows.map((r) => r.following.id),
-    );
+    const userIds = rows.map((r) => r.following.id);
+    const [followedByMeSet, followerCountMap, recentActivityMap] =
+      await Promise.all([
+        this.getFollowedByMeSet(requestUser, userIds),
+        this.getFollowerCountMap(userIds),
+        this.getRecentActivityMap(userIds),
+      ]);
 
     return rows.map((r) => ({
       id: r.following.id,
@@ -108,7 +118,54 @@ export class FollowService {
       avatar: r.following.avatar,
       bio: r.following.bio,
       isFollowedByMe: followedByMeSet.has(r.following.id),
+      followerCount: followerCountMap.get(r.following.id) ?? 0,
+      recentActivity: recentActivityMap.get(r.following.id) ?? null,
     }));
+  }
+
+  private async getFollowerCountMap(
+    userIds: string[],
+  ): Promise<Map<string, number>> {
+    if (userIds.length === 0) return new Map();
+
+    const rows = await this.prisma.follow.groupBy({
+      by: ['followingId'],
+      where: { followingId: { in: userIds }, tenantId: TENANT_ID },
+      _count: { followingId: true },
+    });
+
+    return new Map(rows.map((r) => [r.followingId, r._count.followingId]));
+  }
+
+  private async getRecentActivityMap(
+    userIds: string[],
+  ): Promise<Map<string, { type: 'article' | 'snap'; daysAgo: number }>> {
+    if (userIds.length === 0) return new Map();
+
+    const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const posts = await this.prisma.post.findMany({
+      where: {
+        authorId: { in: userIds },
+        createdAt: { gte: since },
+        tenantId: TENANT_ID,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { authorId: true, type: true, createdAt: true },
+    });
+
+    const map = new Map<string, { type: 'article' | 'snap'; daysAgo: number }>();
+    for (const post of posts) {
+      if (!map.has(post.authorId)) {
+        const daysAgo = Math.floor(
+          (Date.now() - post.createdAt.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        map.set(post.authorId, {
+          type: post.type as 'article' | 'snap',
+          daysAgo,
+        });
+      }
+    }
+    return map;
   }
 
   private async getFollowedByMeSet(
