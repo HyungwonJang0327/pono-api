@@ -13,9 +13,13 @@ const mockPrismaService = {
     create: jest.fn(),
     deleteMany: jest.fn(),
     findMany: jest.fn(),
+    groupBy: jest.fn(),
   },
   user: {
     findFirst: jest.fn(),
+  },
+  post: {
+    findMany: jest.fn(),
   },
 };
 
@@ -50,6 +54,10 @@ describe('FollowService', () => {
 
     service = module.get<FollowService>(FollowService);
     jest.resetAllMocks();
+
+    // 새 필드(followerCount, recentActivity) 관련 쿼리 기본 fallback
+    mockPrismaService.follow.groupBy.mockResolvedValue([]);
+    mockPrismaService.post.findMany.mockResolvedValue([]);
   });
 
   describe('follow', () => {
@@ -174,6 +182,78 @@ describe('FollowService', () => {
       await expect(service.getFollowing('ghost', null)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('followerCount / recentActivity', () => {
+    it('followerCount가 각 유저에 올바르게 매핑된다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+      const follower2 = makeUser('user-2', 'bob');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+        { follower: follower2 },
+      ]);
+      mockPrismaService.follow.groupBy.mockResolvedValue([
+        { followingId: 'user-1', _count: { followingId: 3 } },
+        { followingId: 'user-2', _count: { followingId: 7 } },
+      ]);
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result[0]).toMatchObject({ id: 'user-1', followerCount: 3 });
+      expect(result[1]).toMatchObject({ id: 'user-2', followerCount: 7 });
+    });
+
+    it('recentActivity: 10일 이내 게시물이 있으면 { type, daysAgo }를 반환한다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+
+      const daysAgo2 = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+      ]);
+      mockPrismaService.post.findMany.mockResolvedValue([
+        { authorId: 'user-1', type: 'article', createdAt: daysAgo2 },
+      ]);
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result[0].recentActivity).toEqual({ type: 'article', daysAgo: 2 });
+    });
+
+    it('recentActivity: 10일 초과 게시물만 있으면 null을 반환한다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+      ]);
+      // post.findMany는 10일 이내만 필터하므로 빈 배열 반환 (beforeEach 기본값)
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result[0].recentActivity).toBeNull();
+    });
+
+    it('recentActivity: 게시물이 없으면 null을 반환한다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+      ]);
+      // post.findMany 빈 배열 (beforeEach 기본값)
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result[0].recentActivity).toBeNull();
     });
   });
 });
