@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FollowService } from './follow.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -8,8 +12,30 @@ const mockPrismaService = {
     findFirst: jest.fn(),
     create: jest.fn(),
     deleteMany: jest.fn(),
+    findMany: jest.fn(),
+  },
+  user: {
+    findFirst: jest.fn(),
   },
 };
+
+// ── 헬퍼: 유저 stub 생성 ─────────────────────────────────────
+function makeUser(
+  id: string,
+  username: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    username,
+    avatar: null,
+    bio: null,
+    clerkId: `clerk-${id}`,
+    tenantId: 'pono',
+    createdAt: new Date('2026-06-01T00:00:00.000Z'),
+    ...overrides,
+  };
+}
 
 describe('FollowService', () => {
   let service: FollowService;
@@ -70,6 +96,87 @@ describe('FollowService', () => {
       await expect(service.unfollow('user-1', 'user-2')).resolves.toEqual({
         followingId: 'user-2',
       });
+    });
+  });
+
+  describe('getFollowers', () => {
+    it('팔로워 목록을 정상 반환한다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+      const follower2 = makeUser('user-2', 'bob');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+        { follower: follower2 },
+      ]);
+      // isFollowedByMe 조회용 findMany (요청 유저 없음)
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({ id: 'user-1', username: 'alice', isFollowedByMe: false });
+      expect(result[1]).toMatchObject({ id: 'user-2', username: 'bob', isFollowedByMe: false });
+    });
+
+    it('요청자가 팔로워 중 한 명을 팔로우 중이면 isFollowedByMe: true', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+      ]);
+      // 요청자(user-me)가 user-1을 팔로우 중
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { followingId: 'user-1' },
+      ]);
+
+      const requestUser = makeUser('user-me', 'me');
+      const result = await service.getFollowers('targetuser', requestUser as any);
+
+      expect(result[0]).toMatchObject({ id: 'user-1', isFollowedByMe: true });
+    });
+
+    it('비로그인(requestUser: null) → isFollowedByMe 전부 false', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const follower1 = makeUser('user-1', 'alice');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { follower: follower1 },
+      ]);
+
+      const result = await service.getFollowers('targetuser', null);
+
+      expect(result[0].isFollowedByMe).toBe(false);
+    });
+  });
+
+  describe('getFollowing', () => {
+    it('팔로잉 목록을 정상 반환한다', async () => {
+      const target = makeUser('user-target', 'targetuser');
+      const following1 = makeUser('user-3', 'carol');
+
+      mockPrismaService.user.findFirst.mockResolvedValue(target);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([
+        { following: following1 },
+      ]);
+      mockPrismaService.follow.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getFollowing('targetuser', null);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: 'user-3', username: 'carol', isFollowedByMe: false });
+    });
+
+    it('존재하지 않는 username → NotFoundException을 던진다', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+
+      await expect(service.getFollowing('ghost', null)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
