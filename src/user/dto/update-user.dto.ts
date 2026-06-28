@@ -1,6 +1,7 @@
 import {
   IsString,
   IsOptional,
+  IsIn,
   Matches,
   MinLength,
   MaxLength,
@@ -37,4 +38,8 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(80)
   bio?: string;
+
+  @IsOptional()
+  @IsIn(['ko', 'en', 'ja'])
+  locale?: string;
 }

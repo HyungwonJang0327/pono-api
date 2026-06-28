@@ -46,6 +46,7 @@ export interface UserProfileDto {
   username: string | null;
   avatar: string | null;
   bio: string | null;
+  locale: string | null;
   followerCount: number;
   followingCount: number;
   postCount: number;
@@ -89,6 +90,7 @@ export class UserService {
       username: result.username,
       avatar: result.avatar,
       bio: result.bio,
+      locale: result.locale,
       followerCount: result._count.followers,
       followingCount: result._count.following,
       postCount: result._count.posts,
@@ -122,6 +124,7 @@ export class UserService {
         ...(dto.username !== undefined && { username: dto.username }),
         ...(dto.avatar !== undefined && { avatar: dto.avatar }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
+        ...(dto.locale !== undefined && { locale: dto.locale }),
       },
     });
 
