@@ -13,6 +13,7 @@ const mockUser = {
   username: null,
   avatar: null,
   bio: null,
+  locale: 'ko',
   tenantId: 'pono',
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
@@ -61,6 +62,7 @@ describe('UserService', () => {
         username: null,
         avatar: null,
         bio: null,
+        locale: 'ko',
         followerCount: 5,
         followingCount: 3,
         postCount: 10,
@@ -98,6 +100,21 @@ describe('UserService', () => {
       await expect(
         service.updateMe(mockUser as any, { username: 'taken' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('locale을 업데이트하고 반환한다', async () => {
+      mockPrismaService.user.update.mockResolvedValue({});
+      mockPrismaService.user.findUniqueOrThrow.mockResolvedValue({
+        ...mockUser,
+        locale: 'en',
+        _count: { followers: 0, following: 0, posts: 0 },
+      });
+
+      const result = await service.updateMe(mockUser as any, { locale: 'en' });
+
+      expect(result.locale).toBe('en');
+      const updateData = mockPrismaService.user.update.mock.calls[0][0].data;
+      expect(updateData.locale).toBe('en');
     });
 
     it('bio만 업데이트한다', async () => {
