@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  ConflictException,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { User, Prisma } from '@prisma/client';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { UpdateUserDto, RESERVED_USERNAMES } from './dto/update-user.dto';
 import { UserPostsQueryDto } from './dto/user-posts-query.dto';
 import { extractExcerpt } from '../common/utils/extract-excerpt';
@@ -101,9 +98,7 @@ export class UserService {
   async updateMe(user: User, dto: UpdateUserDto): Promise<UserProfileDto> {
     if (dto.username !== undefined) {
       if (RESERVED_USERNAMES.includes(dto.username)) {
-        throw new BadRequestException(
-          `'${dto.username}'은 사용할 수 없는 username입니다`,
-        );
+        throw AppException.of(ErrorCode.USERNAME_RESERVED);
       }
 
       const existing = await this.prisma.user.findFirst({
@@ -114,7 +109,7 @@ export class UserService {
         },
       });
       if (existing) {
-        throw new ConflictException('이미 사용 중인 username입니다');
+        throw AppException.of(ErrorCode.USERNAME_TAKEN);
       }
     }
 
@@ -149,7 +144,7 @@ export class UserService {
     });
 
     if (!result) {
-      throw new NotFoundException('존재하지 않는 사용자입니다');
+      throw AppException.of(ErrorCode.USER_NOT_FOUND);
     }
 
     let isFollowedByMe = false;
@@ -189,7 +184,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('존재하지 않는 사용자입니다');
+      throw AppException.of(ErrorCode.USER_NOT_FOUND);
     }
 
     const limit = query.limit ?? DEFAULT_LIMIT;

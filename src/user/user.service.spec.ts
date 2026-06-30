@@ -1,11 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ConflictException,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 const mockUser = {
   id: 'user-1',
@@ -88,18 +85,24 @@ describe('UserService', () => {
       expect(result.username).toBe('newname');
     });
 
-    it('예약어 username은 BadRequestException을 던진다', async () => {
+    it('예약어 username은 USERNAME_RESERVED AppException을 던진다', async () => {
       await expect(
         service.updateMe(mockUser as any, { username: 'explore' }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(AppException);
+      await expect(
+        service.updateMe(mockUser as any, { username: 'explore' }),
+      ).rejects.toHaveProperty('code', ErrorCode.USERNAME_RESERVED);
     });
 
-    it('중복 username은 ConflictException을 던진다', async () => {
+    it('중복 username은 USERNAME_TAKEN AppException을 던진다', async () => {
       mockPrismaService.user.findFirst.mockResolvedValue({ id: 'other-user' });
 
       await expect(
         service.updateMe(mockUser as any, { username: 'taken' }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(AppException);
+      await expect(
+        service.updateMe(mockUser as any, { username: 'taken' }),
+      ).rejects.toHaveProperty('code', ErrorCode.USERNAME_TAKEN);
     });
 
     it('locale을 업데이트하고 반환한다', async () => {
@@ -163,12 +166,15 @@ describe('UserService', () => {
       });
     });
 
-    it('존재하지 않는 username → NotFoundException을 던진다', async () => {
+    it('존재하지 않는 username → USER_NOT_FOUND AppException을 던진다', async () => {
       mockPrismaService.user.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getPublicProfile('notexist', 'user-1'),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(AppException);
+      await expect(
+        service.getPublicProfile('notexist', 'user-1'),
+      ).rejects.toHaveProperty('code', ErrorCode.USER_NOT_FOUND);
     });
 
     it('비로그인(requestingUserId null) → isFollowedByMe: false', async () => {
