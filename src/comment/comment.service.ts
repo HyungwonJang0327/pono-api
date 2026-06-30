@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 const TENANT_ID = 'pono';
 const DEFAULT_LIMIT = 30;
@@ -48,7 +45,7 @@ export class CommentService {
       where: { id: postId, tenantId: TENANT_ID },
     });
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     const take = Math.min(limit, DEFAULT_LIMIT);
@@ -122,7 +119,7 @@ export class CommentService {
       where: { id: postId, tenantId: TENANT_ID },
     });
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     if (dto.parentId) {
@@ -130,10 +127,10 @@ export class CommentService {
         where: { id: dto.parentId, postId, tenantId: TENANT_ID },
       });
       if (!parent) {
-        throw new NotFoundException('부모 댓글을 찾을 수 없습니다.');
+        throw AppException.of(ErrorCode.PARENT_COMMENT_NOT_FOUND);
       }
       if (parent.parentId !== null) {
-        throw new BadRequestException('대댓글에는 댓글을 달 수 없습니다.');
+        throw AppException.of(ErrorCode.COMMENT_DEPTH_EXCEEDED);
       }
     }
 
@@ -171,10 +168,10 @@ export class CommentService {
       where: { id: commentId, postId, tenantId: TENANT_ID },
     });
     if (!comment) {
-      throw new NotFoundException('댓글을 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.COMMENT_NOT_FOUND);
     }
     if (comment.authorId !== userId) {
-      throw new ForbiddenException('삭제 권한이 없습니다.');
+      throw AppException.of(ErrorCode.FORBIDDEN_COMMENT_DELETE);
     }
 
     await this.prisma.comment.delete({ where: { id: commentId } });

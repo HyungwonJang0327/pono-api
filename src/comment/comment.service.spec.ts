@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { CommentService } from './comment.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 const mockPrismaService = {
   post: {
@@ -113,12 +114,16 @@ describe('CommentService', () => {
       expect(result.items[0].replies[0].isOwnedByMe).toBe(false);
     });
 
-    it('포스트가 없으면 NotFoundException을 던져야 한다', async () => {
+    it('포스트가 없으면 POST_NOT_FOUND AppException을 던져야 한다', async () => {
       mockPrismaService.post.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getComments('nonexistent-post', undefined, 30, null),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(AppException);
+      mockPrismaService.post.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getComments('nonexistent-post', undefined, 30, null),
+      ).rejects.toHaveProperty('code', ErrorCode.POST_NOT_FOUND);
     });
   });
 });
