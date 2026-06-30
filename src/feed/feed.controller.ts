@@ -1,16 +1,12 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Req,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { User } from '@prisma/client';
 import { FeedService } from './feed.service';
 import { FeedQueryDto, FeedTab } from './dto/feed-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 import type { FeedResponseDto } from './dto/feed-response.dto';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 @Controller('feed')
 export class FeedController {
@@ -31,9 +27,7 @@ export class FeedController {
 
     if (tab === FeedTab.FOLLOWING) {
       if (!userId) {
-        throw new UnauthorizedException(
-          '팔로잉 탭은 로그인 후 이용할 수 있습니다.',
-        );
+        throw AppException.of(ErrorCode.UNAUTHORIZED_FOLLOWING_FEED);
       }
       return this.feedService.getFollowingFeed(userId, cursor, limit);
     }
