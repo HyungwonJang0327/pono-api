@@ -1,15 +1,12 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { verifyToken } from '@clerk/backend';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppException } from '../errors/app.exception';
+import { ErrorCode } from '../errors/error-codes';
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -48,7 +45,7 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
+      throw AppException.of(ErrorCode.UNAUTHORIZED_MISSING_HEADER);
     }
 
     const token = authHeader.slice(7);
@@ -60,7 +57,7 @@ export class ClerkAuthGuard implements CanActivate {
       const payload = await verifyToken(token, { secretKey });
       clerkId = payload.sub;
     } catch {
-      throw new UnauthorizedException('Invalid or expired token');
+      throw AppException.of(ErrorCode.UNAUTHORIZED_INVALID_TOKEN);
     }
 
     // Clerk JWT 검증이 통과했으면 유효한 유저임.

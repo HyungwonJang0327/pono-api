@@ -1,17 +1,11 @@
-import {
-  Controller,
-  Post,
-  Req,
-  Headers,
-  HttpCode,
-  BadRequestException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Controller, Post, Req, Headers, HttpCode } from '@nestjs/common';
 import type { Request } from 'express';
 import { Webhook } from 'svix';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { Public } from '../common/decorators/public.decorator';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 @Controller('auth')
 export class AuthController {
@@ -33,18 +27,16 @@ export class AuthController {
       'CLERK_WEBHOOK_SECRET',
     );
     if (!webhookSecret) {
-      throw new InternalServerErrorException(
-        'CLERK_WEBHOOK_SECRET is not configured',
-      );
+      throw AppException.of(ErrorCode.WEBHOOK_NOT_CONFIGURED);
     }
 
     if (!svixId || !svixTimestamp || !svixSignature) {
-      throw new BadRequestException('Missing svix headers');
+      throw AppException.of(ErrorCode.WEBHOOK_MISSING_HEADERS);
     }
 
     const rawBody = req.rawBody;
     if (!rawBody) {
-      throw new BadRequestException('Missing raw body');
+      throw AppException.of(ErrorCode.WEBHOOK_MISSING_BODY);
     }
 
     let event: { type: string; data: Record<string, any> };
@@ -56,7 +48,7 @@ export class AuthController {
         'svix-signature': svixSignature,
       }) as { type: string; data: Record<string, any> };
     } catch {
-      throw new BadRequestException('Invalid webhook signature');
+      throw AppException.of(ErrorCode.WEBHOOK_INVALID_SIGNATURE);
     }
 
     switch (event.type) {
