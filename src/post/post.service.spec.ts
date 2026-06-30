@@ -9,6 +9,8 @@ import { PostService } from './post.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from './s3.service';
 import { ConfigService } from '@nestjs/config';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 // ── helper: TipTap 텍스트 노드 ───────────────────────────────────
 function textNode(text: string) {
@@ -107,10 +109,13 @@ describe('PostService', () => {
   // 스냅 작성
   // ─────────────────────────────────────────────────────────────────
   describe('createPost — snap', () => {
-    it('이미지 없이 스냅 생성 시 BadRequestException을 던져야 한다', async () => {
+    it('이미지 없이 스냅 생성 시 SNAP_IMAGE_REQUIRED AppException을 던져야 한다', async () => {
       await expect(
         service.createPost({ type: 'snap', images: [] }, 'user-id-1'),
-      ).rejects.toThrow('스냅은 이미지가 최소 1장 필요합니다.');
+      ).rejects.toThrow(AppException);
+      await expect(
+        service.createPost({ type: 'snap', images: [] }, 'user-id-1'),
+      ).rejects.toHaveProperty('code', ErrorCode.SNAP_IMAGE_REQUIRED);
     });
 
     it('이미지 1장으로 스냅을 정상 생성해야 한다', async () => {
@@ -133,10 +138,13 @@ describe('PostService', () => {
   // 아티클 작성
   // ─────────────────────────────────────────────────────────────────
   describe('createPost — article', () => {
-    it('제목 없이 아티클 생성 시 BadRequestException을 던져야 한다', async () => {
+    it('제목 없이 아티클 생성 시 ARTICLE_TITLE_REQUIRED AppException을 던져야 한다', async () => {
       await expect(
         service.createPost({ type: 'article' }, 'user-id-1'),
-      ).rejects.toThrow('아티클은 제목이 필요합니다.');
+      ).rejects.toThrow(AppException);
+      await expect(
+        service.createPost({ type: 'article' }, 'user-id-1'),
+      ).rejects.toHaveProperty('code', ErrorCode.ARTICLE_TITLE_REQUIRED);
     });
 
     it('isDraft 미전달 시 false로 저장해야 한다', async () => {

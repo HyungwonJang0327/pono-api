@@ -1,10 +1,7 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { S3Service } from './s3.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -146,7 +143,7 @@ export class PostService {
     userId: string,
   ): Promise<PostDetailDto> {
     if (!dto.images || dto.images.length === 0) {
-      throw new BadRequestException('스냅은 이미지가 최소 1장 필요합니다.');
+      throw AppException.of(ErrorCode.SNAP_IMAGE_REQUIRED);
     }
 
     const post = await this.prisma.post.create({
@@ -172,7 +169,7 @@ export class PostService {
     userId: string,
   ): Promise<PostDetailDto> {
     if (!dto.title) {
-      throw new BadRequestException('아티클은 제목이 필요합니다.');
+      throw AppException.of(ErrorCode.ARTICLE_TITLE_REQUIRED);
     }
 
     const isDraft = dto.isDraft ?? false;
@@ -229,7 +226,7 @@ export class PostService {
     const post = await this.findPostWithRelations(postId);
 
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     const isOwner = requestUser
@@ -238,7 +235,7 @@ export class PostService {
 
     // isDraft 포스트는 작성자 본인만 조회 가능
     if (post.isDraft && !isOwner) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     return mapToPostDetail(post, requestUser?.id ?? null, isOwner);
@@ -253,11 +250,11 @@ export class PostService {
     const post = await this.findPostWithRelations(postId);
 
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     if (post.author.id !== requestUser.id) {
-      throw new ForbiddenException('수정 권한이 없습니다.');
+      throw AppException.of(ErrorCode.FORBIDDEN_POST_UPDATE);
     }
 
     if (post.type === 'snap') {
@@ -328,11 +325,11 @@ export class PostService {
     });
 
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     if (post.author.id !== requestUser.id) {
-      throw new ForbiddenException('삭제 권한이 없습니다.');
+      throw AppException.of(ErrorCode.FORBIDDEN_POST_DELETE);
     }
 
     await this.prisma.post.delete({ where: { id: postId } });
