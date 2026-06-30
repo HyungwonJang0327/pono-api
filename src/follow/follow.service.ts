@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { User } from '@prisma/client';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 export interface FollowUserDto {
   id: string;
@@ -28,7 +25,7 @@ export class FollowService {
     targetUserId: string,
   ): Promise<{ followingId: string }> {
     if (followerId === targetUserId) {
-      throw new BadRequestException('자기 자신을 팔로우할 수 없습니다');
+      throw AppException.of(ErrorCode.CANNOT_FOLLOW_SELF);
     }
 
     const existing = await this.prisma.follow.findFirst({
@@ -36,7 +33,7 @@ export class FollowService {
     });
 
     if (existing) {
-      throw new ConflictException('이미 팔로우 중입니다');
+      throw AppException.of(ErrorCode.ALREADY_FOLLOWING);
     }
 
     await this.prisma.follow.create({
@@ -64,7 +61,7 @@ export class FollowService {
     const target = await this.prisma.user.findFirst({
       where: { username, tenantId: TENANT_ID },
     });
-    if (!target) throw new NotFoundException('존재하지 않는 사용자입니다');
+    if (!target) throw AppException.of(ErrorCode.USER_NOT_FOUND);
 
     const rows = await this.prisma.follow.findMany({
       where: { followingId: target.id, tenantId: TENANT_ID },
@@ -97,7 +94,7 @@ export class FollowService {
     const target = await this.prisma.user.findFirst({
       where: { username, tenantId: TENANT_ID },
     });
-    if (!target) throw new NotFoundException('존재하지 않는 사용자입니다');
+    if (!target) throw AppException.of(ErrorCode.USER_NOT_FOUND);
 
     const rows = await this.prisma.follow.findMany({
       where: { followerId: target.id, tenantId: TENANT_ID },

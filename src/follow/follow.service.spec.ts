@@ -1,11 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
 import { FollowService } from './follow.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 const mockPrismaService = {
   follow: {
@@ -71,18 +68,26 @@ describe('FollowService', () => {
       expect(result).toEqual({ followingId: 'user-2' });
     });
 
-    it('자기 자신 팔로우 → BadRequestException을 던진다', async () => {
+    it('자기 자신 팔로우 → CANNOT_FOLLOW_SELF AppException을 던진다', async () => {
       await expect(service.follow('user-1', 'user-1')).rejects.toThrow(
-        BadRequestException,
+        AppException,
+      );
+      await expect(service.follow('user-1', 'user-1')).rejects.toHaveProperty(
+        'code',
+        ErrorCode.CANNOT_FOLLOW_SELF,
       );
       expect(mockPrismaService.follow.findFirst).not.toHaveBeenCalled();
     });
 
-    it('이미 팔로우 중 → ConflictException을 던진다', async () => {
+    it('이미 팔로우 중 → ALREADY_FOLLOWING AppException을 던진다', async () => {
       mockPrismaService.follow.findFirst.mockResolvedValue({ id: 'follow-1' });
 
       await expect(service.follow('user-1', 'user-2')).rejects.toThrow(
-        ConflictException,
+        AppException,
+      );
+      await expect(service.follow('user-1', 'user-2')).rejects.toHaveProperty(
+        'code',
+        ErrorCode.ALREADY_FOLLOWING,
       );
       expect(mockPrismaService.follow.create).not.toHaveBeenCalled();
     });
@@ -176,11 +181,15 @@ describe('FollowService', () => {
       expect(result[0]).toMatchObject({ id: 'user-3', username: 'carol', isFollowedByMe: false });
     });
 
-    it('존재하지 않는 username → NotFoundException을 던진다', async () => {
+    it('존재하지 않는 username → USER_NOT_FOUND AppException을 던진다', async () => {
       mockPrismaService.user.findFirst.mockResolvedValue(null);
 
       await expect(service.getFollowing('ghost', null)).rejects.toThrow(
-        NotFoundException,
+        AppException,
+      );
+      await expect(service.getFollowing('ghost', null)).rejects.toHaveProperty(
+        'code',
+        ErrorCode.USER_NOT_FOUND,
       );
     });
   });
