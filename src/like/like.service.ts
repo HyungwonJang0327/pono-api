@@ -1,9 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 const TENANT_ID = 'pono';
 
@@ -19,14 +17,14 @@ export class LikeService {
       where: { id: postId, tenantId: TENANT_ID },
     });
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     const existing = await this.prisma.like.findFirst({
       where: { postId, userId, tenantId: TENANT_ID },
     });
     if (existing) {
-      throw new ConflictException('이미 좋아요한 포스트입니다.');
+      throw AppException.of(ErrorCode.ALREADY_LIKED);
     }
 
     await this.prisma.like.create({
@@ -48,7 +46,7 @@ export class LikeService {
       where: { id: postId, tenantId: TENANT_ID },
     });
     if (!post) {
-      throw new NotFoundException('포스트를 찾을 수 없습니다.');
+      throw AppException.of(ErrorCode.POST_NOT_FOUND);
     }
 
     const existing = await this.prisma.like.findFirst({
