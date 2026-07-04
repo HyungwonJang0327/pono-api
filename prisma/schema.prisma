@@ -51,6 +51,7 @@ model Post {
   coverImage  String?  @map("cover_image")
   readingTime Int?     @map("reading_time")
   isDraft     Boolean  @default(false) @map("is_draft")
+  editedAt    DateTime? @map("edited_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
