@@ -20,6 +20,7 @@ export interface SnapDetailDto {
   likedByMe: boolean;
   isOwnedByMe: boolean;
   commentCount: number;
+  isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,7 @@ export interface ArticleDetailDto {
   likedByMe: boolean;
   isOwnedByMe: boolean;
   commentCount: number;
+  isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -41,6 +41,7 @@ function mockPost(overrides: Record<string, unknown> = {}) {
     coverImage: null,
     readingTime: 1,
     isDraft: false,
+    editedAt: null,
     authorId: 'user-id-1',
     tenantId: 'pono',
     createdAt: new Date('2026-06-21T00:00:00.000Z'),
@@ -67,6 +68,7 @@ describe('PostService', () => {
     post: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      update: jest.fn(),
     },
     like: {
       findFirst: jest.fn(),
@@ -279,6 +281,191 @@ describe('PostService', () => {
       const result = await service.getPostDetail('post-id-1', null);
 
       expect(result.isOwnedByMe).toBe(false);
+    });
+
+    it('editedAt null → isEdited: false', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(
+        mockPostWithLikes('user-id-1'),
+      );
+
+      const result = await service.getPostDetail('post-id-1', { id: 'user-id-1' });
+
+      expect(result.isEdited).toBe(false);
+    });
+
+    it('editedAt 값이 있으면 isEdited: true', async () => {
+      prismaMock.post.findFirst.mockResolvedValue({
+        ...mockPostWithLikes('user-id-1'),
+        editedAt: new Date('2026-06-22T00:00:00.000Z'),
+      });
+
+      const result = await service.getPostDetail('post-id-1', { id: 'user-id-1' });
+
+      expect(result.isEdited).toBe(true);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // updatePost — editedAt / isEdited (B안)
+  // ─────────────────────────────────────────────────────────────────
+  describe('updatePost — isEdited', () => {
+    function ownedSnap(overrides: Record<string, unknown> = {}) {
+      return mockPost({
+        type: 'snap',
+        title: null,
+        caption: '원본 캡션',
+        images: [{ url: 'https://s3/img.jpg', width: 100, height: 100 }],
+        editedAt: null,
+        author: { ...mockPost().author, id: 'user-id-1' },
+        ...overrides,
+      });
+    }
+
+    it('스냅 caption을 실제로 변경하면 editedAt을 now로 세팅하고 isEdited: true', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(ownedSnap());
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(ownedSnap({ caption: data.caption, editedAt: data.editedAt })),
+      );
+
+      const result = await service.updatePost(
+        'post-id-1',
+        { caption: '수정된 캡션' },
+        { id: 'user-id-1' },
+      );
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeInstanceOf(Date);
+      expect(result.isEdited).toBe(true);
+    });
+
+    it('스냅 caption이 동일한 no-op PATCH는 editedAt을 갱신하지 않고 isEdited: false 유지', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(ownedSnap());
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          ownedSnap({
+            caption: data.caption ?? '원본 캡션',
+            editedAt: 'editedAt' in data ? data.editedAt : null,
+          }),
+        ),
+      );
+
+      const result = await service.updatePost(
+        'post-id-1',
+        { caption: '원본 캡션' },
+        { id: 'user-id-1' },
+      );
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeUndefined();
+      expect(result.isEdited).toBe(false);
+    });
+
+    it('caption 미전달 PATCH도 editedAt을 갱신하지 않는다', async () => {
+      prismaMock.post.findFirst.mockResolvedValue(ownedSnap());
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          ownedSnap({ editedAt: 'editedAt' in data ? data.editedAt : null }),
+        ),
+      );
+
+      const result = await service.updatePost('post-id-1', {}, { id: 'user-id-1' });
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeUndefined();
+      expect(result.isEdited).toBe(false);
+    });
+
+    it('아티클 초안→발행 전환(isDraft true→false)만으로는 editedAt을 세팅하지 않는다', async () => {
+      const draft = mockPost({
+        type: 'article',
+        isDraft: true,
+        title: '초안 제목',
+        body: null,
+        editedAt: null,
+        author: { ...mockPost().author, id: 'user-id-1' },
+      });
+      prismaMock.post.findFirst.mockResolvedValue(draft);
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          mockPost({
+            ...draft,
+            isDraft: data.isDraft,
+            editedAt: 'editedAt' in data ? data.editedAt : null,
+          }),
+        ),
+      );
+
+      const result = await service.updatePost(
+        'post-id-1',
+        { isDraft: false },
+        { id: 'user-id-1' },
+      );
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeUndefined();
+      expect(result.isEdited).toBe(false);
+    });
+
+    it('발행된 아티클의 title을 실제로 변경하면 editedAt을 세팅하고 isEdited: true', async () => {
+      const published = mockPost({
+        type: 'article',
+        isDraft: false,
+        title: '원본 제목',
+        body: null,
+        editedAt: null,
+        author: { ...mockPost().author, id: 'user-id-1' },
+      });
+      prismaMock.post.findFirst.mockResolvedValue(published);
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          mockPost({
+            ...published,
+            title: data.title,
+            editedAt: 'editedAt' in data ? data.editedAt : null,
+          }),
+        ),
+      );
+
+      const result = await service.updatePost(
+        'post-id-1',
+        { title: '수정된 제목' },
+        { id: 'user-id-1' },
+      );
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeInstanceOf(Date);
+      expect(result.isEdited).toBe(true);
+    });
+
+    it('발행된 아티클의 콘텐츠가 동일한 no-op PATCH는 editedAt을 갱신하지 않는다', async () => {
+      const published = mockPost({
+        type: 'article',
+        isDraft: false,
+        title: '원본 제목',
+        body: null,
+        editedAt: null,
+        author: { ...mockPost().author, id: 'user-id-1' },
+      });
+      prismaMock.post.findFirst.mockResolvedValue(published);
+      prismaMock.post.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          mockPost({
+            ...published,
+            title: data.title,
+            editedAt: 'editedAt' in data ? data.editedAt : null,
+          }),
+        ),
+      );
+
+      const result = await service.updatePost(
+        'post-id-1',
+        { title: '원본 제목' },
+        { id: 'user-id-1' },
+      );
+
+      const callArg = prismaMock.post.update.mock.calls[0][0];
+      expect(callArg.data.editedAt).toBeUndefined();
+      expect(result.isEdited).toBe(false);
     });
   });
 });
