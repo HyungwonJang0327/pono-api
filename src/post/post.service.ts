@@ -89,6 +89,7 @@ function mapToPostDetail(
       likedByMe,
       isOwnedByMe,
       commentCount,
+      isEdited: post.editedAt !== null,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
     };
@@ -108,6 +109,7 @@ function mapToPostDetail(
     likedByMe,
     isOwnedByMe,
     commentCount,
+    isEdited: post.editedAt !== null,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
   };
@@ -258,9 +260,14 @@ export class PostService {
     }
 
     if (post.type === 'snap') {
+      const captionChanged =
+        dto.caption !== undefined && dto.caption !== post.caption;
       const updated = await this.prisma.post.update({
         where: { id: postId },
-        data: { caption: dto.caption ?? post.caption },
+        data: {
+          caption: dto.caption ?? post.caption,
+          ...(captionChanged ? { editedAt: new Date() } : {}),
+        },
         include: {
           author: true,
           _count: { select: { likes: true, comments: true } },
@@ -296,6 +303,16 @@ export class PostService {
       newReadingTime = Math.max(1, Math.ceil(charCount / 500));
     }
 
+    // 콘텐츠 변경 감지 (title/body/coverImage). 초안→발행 전환은 수정으로 보지 않는다.
+    const titleChanged = dto.title !== undefined && dto.title !== post.title;
+    const bodyChanged =
+      dto.body !== undefined &&
+      JSON.stringify(dto.body) !== JSON.stringify(post.body);
+    const coverImageChanged =
+      'coverImage' in dto && newCoverImage !== post.coverImage;
+    const contentChanged = titleChanged || bodyChanged || coverImageChanged;
+    const isEdit = contentChanged && !wasPublishing;
+
     const updated = await this.prisma.post.update({
       where: { id: postId },
       data: {
@@ -304,6 +321,7 @@ export class PostService {
         coverImage: newCoverImage,
         isDraft: dto.isDraft !== undefined ? dto.isDraft : post.isDraft,
         readingTime: newReadingTime,
+        ...(isEdit ? { editedAt: new Date() } : {}),
       },
       include: {
         author: true,
