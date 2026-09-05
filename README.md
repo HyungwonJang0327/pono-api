@@ -1,98 +1,105 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Pono API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+스냅(사진)과 아티클(장문 글)을 함께 올리는 SNS **Pono**의 백엔드 API 서버입니다.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- 프론트엔드 리포: https://github.com/HyungwonJang0327/pono-web
+- 서비스(프론트 배포): https://dev-pono.vercel.app/
 
-## Description
+<!-- TODO: screenshot — API 전체 엔드포인트 목록 (Swagger 또는 표 캡처) -->
+<!-- TODO: screenshot — Prisma 스키마 기반 ERD (User/Post/Follow/Like/Comment 관계도) -->
+<!-- TODO: screenshot — Clerk Webhook → DB 동기화 시퀀스 다이어그램 -->
+<!-- TODO: screenshot — S3 Presigned URL 업로드 플로우 다이어그램 -->
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## ✨ 핵심 기능
 
-## Project setup
+- **두 가지 포스트 타입**: 스냅(이미지 + 캡션) / 아티클(제목·리치 텍스트 본문·커버 이미지·읽기 시간), 아티클 임시저장(draft) 지원
+- **피드**: 추천 탭(전체 공개 글) / 팔로잉 탭(팔로우한 유저 글), 커서 기반 무한 스크롤
+- **소셜 기능**: 팔로우/언팔로우, 팔로워·팔로잉 목록, 좋아요, 댓글 + 1단계 대댓글
+- **유저 프로필**: username 기반 공개 프로필, 프로필 수정, 유저별 포스트 목록
+- **이미지 업로드**: S3 Presigned URL 발급으로 클라이언트가 서버를 거치지 않고 직접 업로드
+- **인증**: Clerk JWT 검증(전역 Guard) + Webhook으로 유저 데이터 DB 동기화
+- **선택적 인증**: 비로그인도 피드·프로필 열람 가능, 로그인 시 같은 API가 `likedByMe` 등 개인화 정보 포함
 
-```bash
-$ npm install
+## 🛠 기술 스택
+
+| 분류 | 스택 |
+|---|---|
+| 프레임워크 | NestJS 11, TypeScript 5.7 |
+| DB / ORM | PostgreSQL, Prisma 6.19 |
+| 인증 | Clerk (`@clerk/backend` 3.7) + Svix 웹훅 서명 검증 |
+| 스토리지 | AWS S3 (AWS SDK v3, `s3-request-presigner`) |
+| 검증 | class-validator / class-transformer |
+| 테스트 | Jest 30, Supertest |
+| 배포 | Docker (multi-stage) + Railway |
+
+## 🏗 아키텍처 / 폴더 구조
+
+도메인별 모듈 7개(auth, user, post, feed, follow, like, comment)로 분리한 표준 NestJS 구조입니다.
+
+```
+src/
+├── auth/        # Clerk Webhook 수신 → 유저 생성/삭제 DB 동기화
+├── user/        # 내 프로필 조회·수정, username 공개 프로필, 유저별 포스트 목록
+├── post/        # 포스트 CRUD, S3 Presigned URL 발급 (s3.service.ts)
+├── feed/        # 추천/팔로잉 피드, 커서 페이지네이션
+├── follow/      # 팔로우/언팔로우, 팔로워·팔로잉 목록
+├── like/        # 좋아요 추가/취소
+├── comment/     # 댓글·대댓글 (1-depth 제한), 커서 페이지네이션
+├── common/      # 전역 Guard·에러 코드 카탈로그·예외 필터·데코레이터·유틸
+├── prisma/      # PrismaService (DB 커넥션)
+└── main.ts      # 전역 ValidationPipe·예외 필터·CORS 설정
 ```
 
-## Compile and run the project
+## 🔍 기술적으로 신경 쓴 점
+
+### 1. Clerk 인증 — 전역 Guard + Webhook 이중 동기화
+- `ClerkAuthGuard`를 `APP_GUARD`로 등록해 모든 라우트가 기본 보호되고, `@Public()` 데코레이터로만 예외를 엽니다. Public 라우트에서도 토큰이 있으면 `req.user`를 세팅하는 **선택적 인증**으로, 같은 피드 API가 로그인 여부에 따라 개인화 데이터를 다르게 반환합니다.
+- 유저 생성은 Clerk Webhook(`user.created`, Svix 서명 검증)으로 동기화하되, **웹훅 도착 전에 API를 호출하는 타이밍 갭**을 Guard의 `upsert`로 방어해 JWT가 유효하면 DB row 부재로 실패하는 일이 없도록 했습니다.
+
+### 2. S3 Presigned URL 직접 업로드
+- 이미지가 서버를 경유하면 트래픽·메모리 부담이 커지므로, 서버는 10분 만료 Presigned PUT URL만 발급하고 클라이언트가 S3에 직접 업로드합니다. 키는 `{prefix}/{uuid}-{filename}`으로 충돌을 방지하고, 환경별 prefix(`dev` 등)로 버킷을 분리 없이 구분합니다. 포스트 삭제 시 S3 객체도 함께 정리합니다.
+
+### 3. 커서 기반 페이지네이션
+- 피드·댓글·유저 포스트 목록 모두 offset 대신 `{createdAt ISO}_{id}` 복합 커서를 사용합니다. `createdAt`이 같은 행은 `id`로 타이브레이크해 **글이 추가/삭제돼도 중복·누락 없이** 안정적으로 이어지고, `take: limit + 1` 패턴으로 추가 쿼리 없이 `hasMore`를 판정합니다. 정렬 컬럼에는 복합 인덱스(`[tenantId, createdAt desc]` 등)를 걸었습니다.
+
+### 4. 에러 코드 카탈로그 중앙화
+- 모든 에러를 `ErrorCode` enum(+ status/message 정의) 한 파일에 모으고 `AppException.of(code)`로만 던집니다. 프론트는 이 코드를 그대로 i18n 키로 사용해 다국어 에러 메시지를 처리하고, 서버 메시지에 한국어가 섞이는 것을 구조적으로 차단했습니다. `ValidationPipe`의 `exceptionFactory`도 같은 포맷으로 통일했습니다.
+
+### 5. 입력 검증과 멀티테넌트 대비 스키마
+- 전역 `ValidationPipe`에 `whitelist` + `forbidNonWhitelisted`를 적용해 DTO에 정의되지 않은 필드는 요청 자체를 거부합니다. 모든 테이블에 `tenantId`를 두어 단일 DB로 서비스 확장이 가능하도록 설계했습니다.
+
+## 🚀 로컬 실행
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npx prisma migrate dev   # DB 마이그레이션
+npm run start:dev        # http://localhost:3005
 ```
 
-## Run tests
+`.env.example`을 복사해 `.env`를 만들고 아래 환경변수를 채웁니다.
+
+```
+DATABASE_URL
+CLERK_SECRET_KEY
+CLERK_WEBHOOK_SECRET
+AWS_REGION
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+S3_BUCKET_NAME
+S3_PREFIX
+PORT
+NODE_ENV
+```
+
+## 🧪 테스트
+
+도메인 서비스 6개 + 공통 모듈(예외 필터, 검증 팩토리 등)에 대한 유닛 테스트가 있습니다.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm test          # 유닛 테스트
+npm run test:cov  # 커버리지
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Claude Code를 활용한 1인 개발 프로젝트입니다 — 아키텍처, 데이터 모델, 기술 선택은 직접 결정했습니다.
